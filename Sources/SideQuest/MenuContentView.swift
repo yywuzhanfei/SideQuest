@@ -15,6 +15,7 @@ struct MenuContentView: View {
     @State private var newCategory: ActivityCategory = .personal
     @State private var newUsesScreen = false
     @State private var newAllowedAtNight = true
+    @State private var newCooldownDays = 0
     @State private var now = Date()
 
     private var automaticNightIsActive: Bool {
@@ -32,7 +33,8 @@ struct MenuContentView: View {
         RecommendationEngine.filtered(
             activities: store.activities,
             filters: filters,
-            nightMode: nightMode
+            nightMode: nightMode,
+            now: now
         )
     }
 
@@ -47,7 +49,7 @@ struct MenuContentView: View {
             footer
         }
         .padding(16)
-        .frame(width: 390, height: 590)
+        .frame(width: 390, height: 620)
         .onAppear {
             now = Date()
             refreshRecommendationIfNeeded()
@@ -86,6 +88,11 @@ struct MenuContentView: View {
                         Text("\(recommendation.durationMinutes) min · \(recommendation.energy.label) energy · \(recommendation.category.label)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        if let cooldownDays = recommendation.cooldownDays {
+                            Text("After Done: hide for \(cooldownDays) day\(cooldownDays == 1 ? "" : "s")")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                 }
@@ -94,19 +101,28 @@ struct MenuContentView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Button {
-                recommendation = RecommendationEngine.pick(
-                    activities: store.activities,
-                    filters: filters,
-                    nightMode: nightMode
-                )
-            } label: {
-                Label("Pick for me", systemImage: "dice.fill")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                if recommendation != nil {
+                    Button {
+                        markRecommendationDone()
+                    } label: {
+                        Label("Done", systemImage: "checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+
+                Button {
+                    pickRecommendation()
+                } label: {
+                    Label(recommendation == nil ? "Pick for me" : "Another", systemImage: "dice.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(visibleActivities.isEmpty)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(visibleActivities.isEmpty)
         }
         .padding(12)
         .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
@@ -218,6 +234,16 @@ struct MenuContentView: View {
                     }
                 }
 
+                Picker("Cooldown after Done", selection: $newCooldownDays) {
+                    Text("None").tag(0)
+                    Text("1 day").tag(1)
+                    Text("3 days").tag(3)
+                    Text("4 days").tag(4)
+                    Text("1 week").tag(7)
+                    Text("2 weeks").tag(14)
+                    Text("1 month").tag(30)
+                }
+
                 HStack {
                     Toggle("Uses screen", isOn: $newUsesScreen)
                     Toggle("Night-safe", isOn: $newAllowedAtNight)
@@ -266,6 +292,25 @@ struct MenuContentView: View {
         return "≤ \(maxDuration) min"
     }
 
+    private func pickRecommendation() {
+        let currentTime = Date()
+        now = currentTime
+        recommendation = RecommendationEngine.pick(
+            activities: store.activities,
+            filters: filters,
+            nightMode: nightMode,
+            now: currentTime
+        )
+    }
+
+    private func markRecommendationDone() {
+        guard let recommendation else { return }
+        let completionTime = Date()
+        store.markDone(recommendation, at: completionTime)
+        now = completionTime
+        self.recommendation = nil
+    }
+
     private func addActivity() {
         let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
@@ -277,11 +322,13 @@ struct MenuContentView: View {
                 energy: newEnergy,
                 category: newCategory,
                 usesScreen: newUsesScreen,
-                allowedAtNight: newAllowedAtNight
+                allowedAtNight: newAllowedAtNight,
+                cooldownDays: newCooldownDays > 0 ? newCooldownDays : nil
             )
         )
 
         newTitle = ""
+        newCooldownDays = 0
         recommendation = nil
     }
 
