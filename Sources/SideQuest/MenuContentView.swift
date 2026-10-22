@@ -9,6 +9,7 @@ struct MenuContentView: View {
 
     @State private var filters = ActivityFilters()
     @State private var recommendation: Activity?
+    @State private var skippedUntil: [UUID: Date] = [:]
     @State private var newTitle = ""
     @State private var newDuration = 15
     @State private var newEnergy: ActivityEnergy = .low
@@ -17,6 +18,8 @@ struct MenuContentView: View {
     @State private var newAllowedAtNight = true
     @State private var newCooldownDays = 0
     @State private var now = Date()
+
+    private let skipDuration: TimeInterval = 30 * 60
 
     private var automaticNightIsActive: Bool {
         guard automaticNightMode else { return false }
@@ -29,12 +32,28 @@ struct MenuContentView: View {
         manualNightMode || automaticNightIsActive
     }
 
+    private var activeSkippedIDs: Set<UUID> {
+        Set(skippedUntil.compactMap { id, until in
+            until > now ? id : nil
+        })
+    }
+
     private var visibleActivities: [Activity] {
         RecommendationEngine.filtered(
             activities: store.activities,
             filters: filters,
             nightMode: nightMode,
             now: now
+        )
+    }
+
+    private var recommendationCandidates: [Activity] {
+        RecommendationEngine.filtered(
+            activities: store.activities,
+            filters: filters,
+            nightMode: nightMode,
+            now: now,
+            excludedIDs: activeSkippedIDs
         )
     }
 
@@ -52,6 +71,7 @@ struct MenuContentView: View {
         .frame(width: 390, height: 620)
         .onAppear {
             now = Date()
+            removeExpiredSkips()
             refreshRecommendationIfNeeded()
         }
     }
@@ -96,13 +116,8 @@ struct MenuContentView: View {
                     }
                     Spacer()
                 }
-            } else {
-                Text(visibleActivities.isEmpty ? "No quests match these filters." : "Let SideQuest choose for you.")
-                    .foregroundStyle(.secondary)
-            }
 
-            HStack(spacing: 8) {
-                if recommendation != nil {
+                HStack(spacing: 8) {
                     Button {
                         markRecommendationDone()
                     } label: {
@@ -110,18 +125,37 @@ struct MenuContentView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.large)
+
+                    Button {
+                        skipRecommendation()
+                    } label: {
+                        Label("Skip", systemImage: "forward.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        pickAnotherRecommendation()
+                    } label: {
+                        Label("Another", systemImage: "dice.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
+                .controlSize(.large)
+            } else {
+                Text(recommendationCandidates.isEmpty ? "No unskipped quests match these filters." : "Let SideQuest choose for you.")
+                    .foregroundStyle(.secondary)
 
                 Button {
                     pickRecommendation()
                 } label: {
-                    Label(recommendation == nil ? "Pick for me" : "Another", systemImage: "dice.fill")
+                    Label("Pick for me", systemImage: "dice.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(visibleActivities.isEmpty)
+                .disabled(recommendationCandidates.isEmpty)
             }
         }
         .padding(12)
@@ -184,6 +218,11 @@ struct MenuContentView: View {
                                     Text(activity.title)
                                         .lineLimit(1)
                                     Spacer()
+                                    if activeSkippedIDs.contains(activity.id) {
+                                        Text("skipped")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
                                     Text("\(activity.durationMinutes)m")
                                         .font(.caption.monospacedDigit())
                                         .foregroundStyle(.secondary)
@@ -196,6 +235,7 @@ struct MenuContentView: View {
                                 if recommendation?.id == activity.id {
                                     recommendation = nil
                                 }
+                                skippedUntil.removeValue(forKey: activity.id)
                                 store.remove(activity)
                             } label: {
                                 Image(systemName: "trash")
@@ -268,6 +308,7 @@ struct MenuContentView: View {
                 Divider()
                 Button("Reset sample quests") {
                     recommendation = nil
+                    skippedUntil.removeAll()
                     store.resetToDefaults()
                 }
             } label: {
@@ -295,11 +336,48 @@ struct MenuContentView: View {
     private func pickRecommendation() {
         let currentTime = Date()
         now = currentTime
+        removeExpiredSkips()
         recommendation = RecommendationEngine.pick(
             activities: store.activities,
             filters: filters,
             nightMode: nightMode,
-            now: currentTime
+            now: currentTime,
+            excludedIDs: activeSkippedIDs
+        )
+    }
+
+    private func pickAnotherRecommendation() {
+        let currentTime = Date()
+        now = currentTime
+        removeExpiredSkips()
+
+        var excludedIDs = activeSkippedIDs
+        if let current = recommendation {
+            excludedIDs.insert(current.id)
+        }
+
+        if let next = RecommendationEngine.pick(
+            activities: store.activities,
+            filters: filters,
+            nightMode: nightMode,
+            now: currentTime,
+            excludedIDs: excludedIDs
+        ) {
+            recommendation = next
+        }
+    }
+
+    private func skipRecommendation() {
+        guard let current = recommendation else { return }
+        let currentTime = Date()
+        now = currentTime
+        skippedUntil[current.id] = currentTime.addingTimeInterval(skipDuration)
+        recommendation = RecommendationEngine.pick(
+            activities: store.activities,
+            filters: filters,
+            nightMode: nightMode,
+            now: currentTime,
+            excludedIDs: activeSkippedIDs
         )
     }
 
@@ -307,8 +385,13 @@ struct MenuContentView: View {
         guard let recommendation else { return }
         let completionTime = Date()
         store.markDone(recommendation, at: completionTime)
+        skippedUntil.removeValue(forKey: recommendation.id)
         now = completionTime
         self.recommendation = nil
+    }
+
+    private func removeExpiredSkips() {
+        skippedUntil = skippedUntil.filter { $0.value > now }
     }
 
     private func addActivity() {
