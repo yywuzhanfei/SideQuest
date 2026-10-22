@@ -6,7 +6,7 @@ final class ActivityStore: ObservableObject {
     @Published private(set) var activities: [Activity] = []
 
     private let defaults: UserDefaults
-    private let storageKey = "sidequest.activities.v1"
+    private let storageKey = "sidequest.activities.v2"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -20,6 +20,12 @@ final class ActivityStore: ObservableObject {
 
     func remove(_ activity: Activity) {
         activities.removeAll { $0.id == activity.id }
+        persist()
+    }
+
+    func markDone(_ activity: Activity, at date: Date = Date()) {
+        guard let index = activities.firstIndex(where: { $0.id == activity.id }) else { return }
+        activities[index].completedAt = date
         persist()
     }
 
@@ -47,21 +53,17 @@ final class ActivityStore: ObservableObject {
     }
 
     static let defaultActivities: [Activity] = [
-        Activity(title: "Take a shower", durationMinutes: 15, energy: .low, category: .personal, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Walk outside", durationMinutes: 20, energy: .medium, category: .movement, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Stretch", durationMinutes: 10, energy: .low, category: .movement, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Tidy the desk", durationMinutes: 10, energy: .low, category: .chores, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Take out the trash", durationMinutes: 5, energy: .low, category: .chores, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Prep tomorrow's clothes", durationMinutes: 5, energy: .low, category: .personal, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Play with the cat", durationMinutes: 15, energy: .low, category: .personal, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Listen to a podcast", durationMinutes: 30, energy: .low, category: .entertainment, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Watch one episode", durationMinutes: 30, energy: .low, category: .entertainment, usesScreen: true, allowedAtNight: true),
-        Activity(title: "Read a book", durationMinutes: 30, energy: .low, category: .learning, usesScreen: false, allowedAtNight: true),
-        Activity(title: "Practice spoken English", durationMinutes: 20, energy: .medium, category: .learning, usesScreen: true, allowedAtNight: true),
-        Activity(title: "Go to the gym", durationMinutes: 60, energy: .high, category: .movement, usesScreen: false, allowedAtNight: true),
+        Activity(title: "腘绳肌 + 臀中肌放松", durationMinutes: 15, energy: .low, category: .movement, usesScreen: false, allowedAtNight: true),
+        Activity(title: "收拾桌面", durationMinutes: 10, energy: .low, category: .chores, usesScreen: false, allowedAtNight: true),
+        Activity(title: "倒垃圾", durationMinutes: 5, energy: .low, category: .chores, usesScreen: false, allowedAtNight: true, cooldownDays: 1),
+        Activity(title: "洗 / 收一轮衣服", durationMinutes: 15, energy: .low, category: .chores, usesScreen: false, allowedAtNight: true, cooldownDays: 4),
+        Activity(title: "看书", durationMinutes: 30, energy: .low, category: .learning, usesScreen: false, allowedAtNight: true),
+        Activity(title: "看一集剧", durationMinutes: 60, energy: .low, category: .entertainment, usesScreen: true, allowedAtNight: true),
+        Activity(title: "看一部电影", durationMinutes: 120, energy: .low, category: .entertainment, usesScreen: true, allowedAtNight: true),
+        Activity(title: "整理照片", durationMinutes: 15, energy: .low, category: .personal, usesScreen: true, allowedAtNight: true),
         Activity(title: "Coding side project", durationMinutes: 60, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false),
-        Activity(title: "Interview prep", durationMinutes: 45, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false),
-        Activity(title: "Investment research", durationMinutes: 45, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false),
-        Activity(title: "Work on a work problem", durationMinutes: 45, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false)
+        Activity(title: "面试准备", durationMinutes: 45, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false),
+        Activity(title: "投资研究", durationMinutes: 45, energy: .high, category: .focus, usesScreen: true, allowedAtNight: false),
+        Activity(title: "给猫梳毛", durationMinutes: 5, energy: .low, category: .personal, usesScreen: false, allowedAtNight: true, cooldownDays: 3)
     ]
 }
