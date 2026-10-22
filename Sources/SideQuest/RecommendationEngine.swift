@@ -12,9 +12,11 @@ enum RecommendationEngine {
         activities: [Activity],
         filters: ActivityFilters,
         nightMode: Bool,
-        now: Date = Date()
+        now: Date = Date(),
+        excludedIDs: Set<UUID> = []
     ) -> [Activity] {
         activities.filter { activity in
+            if excludedIDs.contains(activity.id) { return false }
             if activity.isCoolingDown(at: now) { return false }
             if nightMode && !activity.allowedAtNight { return false }
             if let maxDuration = filters.maxDuration,
@@ -30,13 +32,15 @@ enum RecommendationEngine {
         activities: [Activity],
         filters: ActivityFilters,
         nightMode: Bool,
-        now: Date = Date()
+        now: Date = Date(),
+        excludedIDs: Set<UUID> = []
     ) -> Activity? {
         filtered(
             activities: activities,
             filters: filters,
             nightMode: nightMode,
-            now: now
+            now: now,
+            excludedIDs: excludedIDs
         ).randomElement()
     }
 }

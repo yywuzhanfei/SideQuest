@@ -56,6 +56,28 @@ final class RecommendationEngineTests: XCTestCase {
         XCTAssertEqual(result, [nightSafe])
     }
 
+    func testExcludedIDsAreRemovedFromRecommendationPool() {
+        let result = RecommendationEngine.filtered(
+            activities: [nightSafe, focusTask],
+            filters: ActivityFilters(),
+            nightMode: false,
+            excludedIDs: [nightSafe.id]
+        )
+
+        XCTAssertEqual(result, [focusTask])
+    }
+
+    func testPickReturnsOnlyNonExcludedCandidate() {
+        let picked = RecommendationEngine.pick(
+            activities: [nightSafe, focusTask],
+            filters: ActivityFilters(),
+            nightMode: false,
+            excludedIDs: [nightSafe.id]
+        )
+
+        XCTAssertEqual(picked, focusTask)
+    }
+
     func testCooldownHidesCompletedQuestUntilExpiry() {
         let completedAt = Date(timeIntervalSince1970: 1_800_000_000)
         let coolingQuest = Activity(
