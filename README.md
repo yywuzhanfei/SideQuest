@@ -4,7 +4,7 @@ A lightweight macOS menu bar app for the moments when you have free time but can
 
 SideQuest is intentionally **not** a todo list. Everything in it is optional. Open the menu bar, tell it roughly how much time/energy you have, and either browse a few ideas or let **Pick for me** choose one.
 
-## MVP
+## MVP 
 
 - Native macOS menu bar app with SwiftUI `MenuBarExtra`
 - Activities tagged by duration, energy, category, and screen usage
