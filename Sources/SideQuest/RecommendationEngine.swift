@@ -11,9 +11,11 @@ enum RecommendationEngine {
     static func filtered(
         activities: [Activity],
         filters: ActivityFilters,
-        nightMode: Bool
+        nightMode: Bool,
+        now: Date = Date()
     ) -> [Activity] {
         activities.filter { activity in
+            if activity.isCoolingDown(at: now) { return false }
             if nightMode && !activity.allowedAtNight { return false }
             if let maxDuration = filters.maxDuration,
                activity.durationMinutes > maxDuration { return false }
@@ -27,8 +29,14 @@ enum RecommendationEngine {
     static func pick(
         activities: [Activity],
         filters: ActivityFilters,
-        nightMode: Bool
+        nightMode: Bool,
+        now: Date = Date()
     ) -> Activity? {
-        filtered(activities: activities, filters: filters, nightMode: nightMode).randomElement()
+        filtered(
+            activities: activities,
+            filters: filters,
+            nightMode: nightMode,
+            now: now
+        ).randomElement()
     }
 }
