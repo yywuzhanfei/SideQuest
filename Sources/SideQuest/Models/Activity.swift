@@ -46,6 +46,8 @@ struct Activity: Identifiable, Codable, Hashable {
     var category: ActivityCategory
     var usesScreen: Bool
     var allowedAtNight: Bool
+    var cooldownDays: Int?
+    var completedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -54,7 +56,9 @@ struct Activity: Identifiable, Codable, Hashable {
         energy: ActivityEnergy,
         category: ActivityCategory,
         usesScreen: Bool,
-        allowedAtNight: Bool
+        allowedAtNight: Bool,
+        cooldownDays: Int? = nil,
+        completedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -63,5 +67,26 @@ struct Activity: Identifiable, Codable, Hashable {
         self.category = category
         self.usesScreen = usesScreen
         self.allowedAtNight = allowedAtNight
+        self.cooldownDays = cooldownDays
+        self.completedAt = completedAt
+    }
+
+    func availableAgainAt(calendar: Calendar = .current) -> Date? {
+        guard
+            let cooldownDays,
+            cooldownDays > 0,
+            let completedAt
+        else {
+            return nil
+        }
+
+        return calendar.date(byAdding: .day, value: cooldownDays, to: completedAt)
+    }
+
+    func isCoolingDown(at date: Date, calendar: Calendar = .current) -> Bool {
+        guard let availableAgainAt = availableAgainAt(calendar: calendar) else {
+            return false
+        }
+        return date < availableAgainAt
     }
 }
